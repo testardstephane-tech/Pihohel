@@ -34,6 +34,7 @@ export default function ListsPage() {
   const [items, setItems] = useState([])
   const [loadingItems, setLoadingItems] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('watching')
   const [showFreeInput, setShowFreeInput] = useState(false)
   const [freeText, setFreeText] = useState('')
 
@@ -216,7 +217,11 @@ export default function ListsPage() {
     setCustomItems(p => p.filter(i => i.id !== id))
   }
 
-  const filteredItems = items.filter(i => typeFilter === 'all' || i.type === typeFilter)
+  const filteredItems = items.filter(i => {
+    if (typeFilter !== 'all' && i.type !== typeFilter) return false
+    if (statusFilter !== 'all' && i.status !== statusFilter) return false
+    return true
+  })
   const typeEmoji = { series: '🎬', movie: '🎥', game: '🎮', actor: '⭐', free: '📝' }
 
   // ════════ SEARCH ════════
@@ -362,6 +367,22 @@ export default function ListsPage() {
         <p className="font-body text-text-muted text-xs">{items.length} éléments</p>
       </div>
 
+      {/* Status tabs */}
+      <div className="flex gap-2 px-5 mb-2 overflow-x-auto no-scrollbar">
+        {[
+          { id: 'watching', label: 'En cours', emoji: '▶️' },
+          { id: 'to_watch', label: 'À voir', emoji: '📌' },
+          { id: 'completed', label: 'Terminés', emoji: '✅' },
+          { id: 'all', label: 'Tout', emoji: '🌐' },
+        ].map(s => (
+          <button key={s.id} onClick={() => setStatusFilter(s.id)}
+            className="flex-shrink-0 px-3 py-2 rounded-xl font-body text-xs font-medium transition-all"
+            style={statusFilter === s.id ? { background: currentUser?.color, color: '#0a0a0f' } : { background: '#1a1a26', border: '1px solid #2a2a3a', color: '#8888aa' }}
+          >{s.emoji} {s.label}</button>
+        ))}
+      </div>
+
+      {/* Type tabs */}
       <div className="flex overflow-x-auto no-scrollbar gap-2 px-5 mb-2 pb-1">
         {TYPE_TABS.map(t => (
           <button key={t.id} onClick={() => setTypeFilter(t.id)} className="flex-shrink-0 px-3 py-2 rounded-xl font-body text-xs font-medium transition-all"
