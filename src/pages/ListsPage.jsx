@@ -137,7 +137,8 @@ export default function ListsPage() {
         if (!d.id) { errors.push(item.title); continue }
 
         const newType = detectSeriesType(d)
-        await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
+        const { error } = await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
+        if (error) { errors.push(`${item.title} (${error.message})`); continue }
         if (newType !== item.type) updated++
       } catch (e) {
         errors.push(item.title)

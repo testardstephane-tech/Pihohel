@@ -43,7 +43,7 @@ create trigger on_auth_user_created
 create table if not exists public.watchlist (
   id uuid default uuid_generate_v4() primary key,
   external_id text,
-  type text not null check (type in ('series', 'movie', 'game', 'actor')),
+  type text not null check (type in ('series', 'movie', 'game', 'actor', 'drama', 'show')),
   title text not null,
   poster_url text,
   synopsis text,
