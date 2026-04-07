@@ -7,11 +7,27 @@ import { tmdb, rawg } from '../lib/api'
 
 const TYPE_TABS = [
   { id: 'all', label: 'Tout', emoji: '🌐' },
-  { id: 'series', label: 'Séries', emoji: '🎬' },
+  { id: 'drama', label: 'Dramas', emoji: '🎭' },
+  { id: 'series', label: 'Séries', emoji: '📺' },
+  { id: 'show', label: 'Émissions', emoji: '🎙️' },
   { id: 'movie', label: 'Films', emoji: '🎥' },
   { id: 'game', label: 'Jeux', emoji: '🎮' },
   { id: 'actor', label: 'Acteurs', emoji: '⭐' },
 ]
+
+// Pays asiatiques → Drama
+const DRAMA_COUNTRIES = ['KR', 'JP', 'CN', 'TW', 'TH', 'HK', 'SG']
+// Genres émission (TMDB genre IDs)
+const SHOW_GENRES = [10764, 10767, 10763, 99, 10766] // Reality, Talk, News, Documentary, Soap
+
+function detectSeriesType(tmdbItem) {
+  if (!tmdbItem) return 'series'
+  const origin = tmdbItem.origin_country?.[0] || ''
+  const genres = tmdbItem.genre_ids || []
+  if (SHOW_GENRES.some(g => genres.includes(g))) return 'show'
+  if (DRAMA_COUNTRIES.includes(origin)) return 'drama'
+  return 'series'
+}
 
 const STATUS_CONFIG = {
   to_watch: { label: 'À voir', emoji: '📌', next: 'watching', color: '#8888aa', bg: '#2a2a3a' },
@@ -20,7 +36,7 @@ const STATUS_CONFIG = {
 }
 
 const SEARCH_TYPES = [
-  { id: 'series', label: 'Séries', emoji: '🎬' },
+  { id: 'series', label: 'Séries/Dramas', emoji: '🎬' },
   { id: 'movie', label: 'Films', emoji: '🎥' },
   { id: 'game', label: 'Jeux', emoji: '🎮' },
   { id: 'actor', label: 'Acteurs', emoji: '⭐' },
@@ -35,6 +51,7 @@ export default function ListsPage() {
   const [loadingItems, setLoadingItems] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('watching')
+  const [sortBy, setSortBy] = useState('date')
   const [showFreeInput, setShowFreeInput] = useState(false)
   const [freeText, setFreeText] = useState('')
 
@@ -64,6 +81,29 @@ export default function ListsPage() {
     const { data } = await supabase.from('watchlist').select('*').order('updated_at', { ascending: false })
     setItems(data || [])
     setLoadingItems(false)
+  }
+
+  // Recalcule les types pour les séries déjà dans la liste
+  async function recalcTypes() {
+    const { data: seriesItems } = await supabase
+      .from('watchlist')
+      .select('id, external_id, type')
+      .in('type', ['series', 'drama', 'show'])
+      .not('external_id', 'is', null)
+
+    if (!seriesItems?.length) return
+
+    for (const item of seriesItems) {
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${import.meta.env.VITE_TMDB_API_KEY}&language=fr-FR`)
+        const details = await res.json()
+        const newType = detectSeriesType(details)
+        if (newType !== item.type) {
+          await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
+        }
+      } catch (e) { console.error(e) }
+    }
+    fetchWatchlist()
   }
 
   async function fetchCustomLists() {
@@ -130,13 +170,19 @@ export default function ListsPage() {
       episodeDuration = info.episodeDuration
     }
 
+    // Détecter automatiquement drama / série / émission selon le pays d'origine
+    let finalType = searchType
+    if (searchType === 'series') {
+      finalType = detectSeriesType(result)
+    }
+
     const payload = {
-      external_id: String(result.id), type: searchType, title, poster_url: poster,
+      external_id: String(result.id), type: finalType, title, poster_url: poster,
       synopsis: result.overview || result.known_for_department || '',
       total_episodes: totalEpisodes,
       episode_duration: episodeDuration,
       status: 'to_watch', current_episode: 0, added_by: currentUser.id,
-      season_number: searchType === 'series' ? 1 : null,
+      season_number: (searchType === 'series') ? 1 : null,
     }
     if (searchFrom === 'watchlist') {
       await supabase.from('watchlist').insert(payload)
@@ -217,12 +263,24 @@ export default function ListsPage() {
     setCustomItems(p => p.filter(i => i.id !== id))
   }
 
-  const filteredItems = items.filter(i => {
-    if (typeFilter !== 'all' && i.type !== typeFilter) return false
-    if (statusFilter !== 'all' && i.status !== statusFilter) return false
-    return true
-  })
-  const typeEmoji = { series: '🎬', movie: '🎥', game: '🎮', actor: '⭐', free: '📝' }
+  const filteredItems = items
+    .filter(i => {
+      if (typeFilter !== 'all' && i.type !== typeFilter) return false
+      if (statusFilter !== 'all' && i.status !== statusFilter) return false
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'date') return new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+      if (sortBy === 'episodes') return (b.total_episodes || 0) - (a.total_episodes || 0)
+      if (sortBy === 'progress') {
+        const pA = a.total_episodes ? (a.current_episode || 0) / a.total_episodes : 0
+        const pB = b.total_episodes ? (b.current_episode || 0) / b.total_episodes : 0
+        return pB - pA
+      }
+      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr')
+      return 0
+    })
+  const typeEmoji = { drama: '🎭', series: '📺', show: '🎙️', movie: '🎥', game: '🎮', actor: '⭐', free: '📝' }
 
   // ════════ SEARCH ════════
   if (view === 'search') return (
@@ -364,7 +422,12 @@ export default function ListsPage() {
           <h1 className="font-display text-3xl italic text-text-primary">Watchlist</h1>
           <button onClick={() => { setShowNewList(false); setView('custom_home') }} className="font-body text-xs px-3 py-1.5 rounded-xl border transition-all" style={{ borderColor: `${partner?.color}40`, color: partner?.color, background: `${partner?.color}10` }}>✏️ Mes listes</button>
         </div>
-        <p className="font-body text-text-muted text-xs">{items.length} éléments</p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="font-body text-text-muted text-xs">{items.length} éléments</p>
+          <button onClick={recalcTypes} className="font-body text-[10px] px-2 py-0.5 rounded-full border transition-all" style={{ borderColor: `${currentUser?.color}30`, color: `${currentUser?.color}80` }}>
+            🔄 Recalculer types
+          </button>
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -394,6 +457,22 @@ export default function ListsPage() {
       <div className="px-5 flex gap-2 mb-3">
         <button onClick={() => openSearch('watchlist')} className="flex-1 text-void font-body font-medium rounded-2xl py-3 text-sm" style={{ background: `linear-gradient(135deg, ${currentUser?.color}, ${partner?.color})` }}>🔍 Rechercher & ajouter</button>
         <button onClick={() => setShowFreeInput(!showFreeInput)} className="px-4 rounded-2xl font-body text-sm border transition-all" style={{ borderColor: `${currentUser?.color}40`, color: currentUser?.color, background: `${currentUser?.color}10` }}>✏️</button>
+      </div>
+
+      {/* Tri */}
+      <div className="flex gap-2 px-5 mb-3 overflow-x-auto no-scrollbar">
+        <span className="font-body text-text-muted text-xs flex items-center flex-shrink-0">Trier :</span>
+        {[
+          { id: 'date', label: 'Récent' },
+          { id: 'title', label: 'A → Z' },
+          { id: 'episodes', label: 'Épisodes' },
+          { id: 'progress', label: 'Progression' },
+        ].map(s => (
+          <button key={s.id} onClick={() => setSortBy(s.id)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-xl font-body text-xs font-medium transition-all"
+            style={sortBy === s.id ? { background: `${currentUser?.color}25`, color: currentUser?.color, border: `1px solid ${currentUser?.color}50` } : { background: '#1a1a26', border: '1px solid #2a2a3a', color: '#8888aa' }}
+          >{s.label}</button>
+        ))}
       </div>
 
       <AnimatePresence>
