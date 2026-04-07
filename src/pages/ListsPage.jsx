@@ -590,8 +590,8 @@ export default function ListsPage() {
                       <button onClick={() => cycleStatus(item)} className="font-body text-[10px] px-2 py-0.5 rounded-full transition-all"
                         style={item.status === 'completed' ? { background: 'rgba(6,214,160,0.2)', color: '#06d6a0' } : item.status === 'watching' ? { background: `${currentUser?.color}15`, color: currentUser?.color } : { background: '#2a2a3a', color: '#8888aa' }}
                       >{sc.emoji} {sc.label} →</button>
-                      {item.type === 'series' && item.season_number && <span className="font-body text-[10px] px-2 py-0.5 rounded-full bg-surface text-text-muted border border-border">S{item.season_number}</span>}
-                      {item.type === 'series' && (
+                      {['series', 'drama', 'show'].includes(item.type) && item.season_number && <span className="font-body text-[10px] px-2 py-0.5 rounded-full bg-surface text-text-muted border border-border">S{item.season_number}</span>}
+                      {['series', 'drama', 'show'].includes(item.type) && (
                         <div className="flex items-center gap-1.5 ml-auto">
                           <button onClick={() => updateEp(item.id, -1, item)} className="w-5 h-5 bg-surface rounded-full text-text-secondary text-xs flex items-center justify-center">−</button>
                           <span className="font-mono text-[10px] text-text-muted">Ép. {item.current_episode || 0}{item.total_episodes ? `/${item.total_episodes}` : ''}</span>
@@ -599,7 +599,7 @@ export default function ListsPage() {
                         </div>
                       )}
                     </div>
-                    {item.type === 'series' && item.total_episodes && (
+                    {['series', 'drama', 'show'].includes(item.type) && item.total_episodes && (
                       <div className="mt-1.5 bg-surface rounded-full h-1 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((item.current_episode || 0) / item.total_episodes) * 100)}%`, background: `linear-gradient(90deg, ${currentUser?.color}, ${partner?.color})` }} />
                       </div>
