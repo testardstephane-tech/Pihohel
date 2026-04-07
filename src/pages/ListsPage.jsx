@@ -22,10 +22,13 @@ const SHOW_GENRES = [10764, 10767, 10763, 99, 10766] // Reality, Talk, News, Doc
 
 function detectSeriesType(tmdbItem) {
   if (!tmdbItem) return 'series'
-  const origin = tmdbItem.origin_country?.[0] || ''
-  const genres = tmdbItem.genre_ids || []
-  if (SHOW_GENRES.some(g => genres.includes(g))) return 'show'
-  if (DRAMA_COUNTRIES.includes(origin)) return 'drama'
+  // origin_country peut être un tableau ['KR'] ou une string 'KR'
+  const origins = tmdbItem.origin_country || []
+  const originList = Array.isArray(origins) ? origins : [origins]
+  // genre_ids dans les résultats search, genres (objets) dans les détails complets
+  const genreIds = tmdbItem.genre_ids || (tmdbItem.genres || []).map(g => g.id)
+  if (SHOW_GENRES.some(g => genreIds.includes(g))) return 'show'
+  if (originList.some(c => DRAMA_COUNTRIES.includes(c))) return 'drama'
   return 'series'
 }
 
@@ -52,6 +55,7 @@ export default function ListsPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('watching')
   const [sortBy, setSortBy] = useState('date')
+  const [sortDir, setSortDir] = useState('desc') // 'asc' | 'desc'
   const [showFreeInput, setShowFreeInput] = useState(false)
   const [freeText, setFreeText] = useState('')
 
@@ -85,25 +89,39 @@ export default function ListsPage() {
 
   // Recalcule les types pour les séries déjà dans la liste
   async function recalcTypes() {
+    setLoadingItems(true)
+    // Récupère TOUTES les séries/dramas/shows avec un external_id
     const { data: seriesItems } = await supabase
       .from('watchlist')
       .select('id, external_id, type')
-      .in('type', ['series', 'drama', 'show'])
       .not('external_id', 'is', null)
+      .neq('type', 'movie')
+      .neq('type', 'game')
+      .neq('type', 'actor')
+      .neq('type', 'free')
 
-    if (!seriesItems?.length) return
+    if (!seriesItems?.length) {
+      setLoadingItems(false)
+      return
+    }
 
+    let updated = 0
     for (const item of seriesItems) {
       try {
-        const res = await fetch(`https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${import.meta.env.VITE_TMDB_API_KEY}&language=fr-FR`)
+        const res = await fetch(
+          `https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${import.meta.env.VITE_TMDB_API_KEY}&language=fr-FR`
+        )
         const details = await res.json()
+        if (!details.id) continue // TMDB n'a pas trouvé
         const newType = detectSeriesType(details)
         if (newType !== item.type) {
           await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
+          updated++
         }
-      } catch (e) { console.error(e) }
+      } catch (e) { console.error('recalc error:', item.id, e) }
     }
-    fetchWatchlist()
+    await fetchWatchlist()
+    alert(`✅ Recalcul terminé — ${updated} élément(s) mis à jour sur ${seriesItems.length}`)
   }
 
   async function fetchCustomLists() {
@@ -270,15 +288,16 @@ export default function ListsPage() {
       return true
     })
     .sort((a, b) => {
-      if (sortBy === 'date') return new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
-      if (sortBy === 'episodes') return (b.total_episodes || 0) - (a.total_episodes || 0)
-      if (sortBy === 'progress') {
+      let result = 0
+      if (sortBy === 'date') result = new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+      else if (sortBy === 'episodes') result = (b.total_episodes || 0) - (a.total_episodes || 0)
+      else if (sortBy === 'progress') {
         const pA = a.total_episodes ? (a.current_episode || 0) / a.total_episodes : 0
         const pB = b.total_episodes ? (b.current_episode || 0) / b.total_episodes : 0
-        return pB - pA
+        result = pB - pA
       }
-      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr')
-      return 0
+      else if (sortBy === 'title') result = (a.title || '').localeCompare(b.title || '', 'fr')
+      return sortDir === 'asc' ? -result : result
     })
   const typeEmoji = { drama: '🎭', series: '📺', show: '🎙️', movie: '🎥', game: '🎮', actor: '⭐', free: '📝' }
 
@@ -463,15 +482,19 @@ export default function ListsPage() {
       <div className="flex gap-2 px-5 mb-3 overflow-x-auto no-scrollbar">
         <span className="font-body text-text-muted text-xs flex items-center flex-shrink-0">Trier :</span>
         {[
-          { id: 'date', label: 'Récent' },
-          { id: 'title', label: 'A → Z' },
-          { id: 'episodes', label: 'Épisodes' },
-          { id: 'progress', label: 'Progression' },
+          { id: 'date', label: 'Récent', asc: '↑ Ancien', desc: '↓ Récent' },
+          { id: 'title', label: 'A → Z', asc: 'A → Z', desc: 'Z → A' },
+          { id: 'episodes', label: 'Épisodes', asc: '↑ Moins', desc: '↓ Plus' },
+          { id: 'progress', label: 'Progression', asc: '↑ Moins', desc: '↓ Plus' },
         ].map(s => (
-          <button key={s.id} onClick={() => setSortBy(s.id)}
+          <button key={s.id}
+            onClick={() => {
+              if (sortBy === s.id) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+              else { setSortBy(s.id); setSortDir('desc') }
+            }}
             className="flex-shrink-0 px-3 py-1.5 rounded-xl font-body text-xs font-medium transition-all"
             style={sortBy === s.id ? { background: `${currentUser?.color}25`, color: currentUser?.color, border: `1px solid ${currentUser?.color}50` } : { background: '#1a1a26', border: '1px solid #2a2a3a', color: '#8888aa' }}
-          >{s.label}</button>
+          >{sortBy === s.id ? (sortDir === 'desc' ? s.desc : s.asc) : s.label}</button>
         ))}
       </div>
 
