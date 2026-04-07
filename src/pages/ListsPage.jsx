@@ -90,38 +90,51 @@ export default function ListsPage() {
   // Recalcule les types pour les séries déjà dans la liste
   async function recalcTypes() {
     setLoadingItems(true)
-    // Récupère TOUTES les séries/dramas/shows avec un external_id
     const { data: seriesItems } = await supabase
       .from('watchlist')
       .select('id, external_id, type')
       .not('external_id', 'is', null)
-      .neq('type', 'movie')
-      .neq('type', 'game')
-      .neq('type', 'actor')
-      .neq('type', 'free')
 
     if (!seriesItems?.length) {
       setLoadingItems(false)
+      alert('Aucun élément trouvé')
       return
     }
 
     let updated = 0
     for (const item of seriesItems) {
+      // Ignorer films, jeux, acteurs, free
+      if (['movie', 'game', 'actor', 'free'].includes(item.type)) continue
       try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${import.meta.env.VITE_TMDB_API_KEY}&language=fr-FR`
-        )
+        const apiKey = import.meta.env.VITE_TMDB_API_KEY
+        const url = `https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${apiKey}&language=fr-FR`
+        const res = await fetch(url)
         const details = await res.json()
-        if (!details.id) continue // TMDB n'a pas trouvé
-        const newType = detectSeriesType(details)
-        if (newType !== item.type) {
-          await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
-          updated++
+
+        if (!details || !details.id) continue
+
+        // Détecter le type
+        const originList = Array.isArray(details.origin_country)
+          ? details.origin_country
+          : details.origin_country ? [details.origin_country] : []
+
+        const genreIds = (details.genres || []).map(g => g.id)
+
+        let newType = 'series'
+        if ([10764, 10767, 10763, 99, 10766].some(g => genreIds.includes(g))) {
+          newType = 'show'
+        } else if (originList.some(c => ['KR','JP','CN','TW','TH','HK','SG'].includes(c))) {
+          newType = 'drama'
         }
+
+        // Toujours mettre à jour pour être sûr
+        await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
+        if (newType !== item.type) updated++
+
       } catch (e) { console.error('recalc error:', item.id, e) }
     }
     await fetchWatchlist()
-    alert(`✅ Recalcul terminé — ${updated} élément(s) mis à jour sur ${seriesItems.length}`)
+    alert(`✅ Recalcul terminé — ${updated} type(s) corrigé(s)`)
   }
 
   async function fetchCustomLists() {
