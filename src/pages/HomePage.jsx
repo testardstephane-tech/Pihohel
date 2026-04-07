@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-const APP_VERSION = 'v10.6'
+const APP_VERSION = 'v10.8'
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
 const item = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } } }

@@ -17,18 +17,27 @@ const TYPE_TABS = [
 
 // Pays asiatiques → Drama
 const DRAMA_COUNTRIES = ['KR', 'JP', 'CN', 'TW', 'TH', 'HK', 'SG']
-// Genres émission (TMDB genre IDs)
-const SHOW_GENRES = [10764, 10767, 10763, 99, 10766] // Reality, Talk, News, Documentary, Soap
+const SHOW_GENRE_IDS = [10764, 10767, 10763, 99, 10766]
 
 function detectSeriesType(tmdbItem) {
   if (!tmdbItem) return 'series'
-  // origin_country peut être un tableau ['KR'] ou une string 'KR'
-  const origins = tmdbItem.origin_country || []
-  const originList = Array.isArray(origins) ? origins : [origins]
-  // genre_ids dans les résultats search, genres (objets) dans les détails complets
-  const genreIds = tmdbItem.genre_ids || (tmdbItem.genres || []).map(g => g.id)
-  if (SHOW_GENRES.some(g => genreIds.includes(g))) return 'show'
-  if (originList.some(c => DRAMA_COUNTRIES.includes(c))) return 'drama'
+
+  // Normaliser origin_country en tableau
+  let origins = tmdbItem.origin_country
+  if (!origins) origins = []
+  if (typeof origins === 'string') origins = [origins]
+
+  // Normaliser genre ids (search = genre_ids, details = genres[].id)
+  let genreIds = []
+  if (Array.isArray(tmdbItem.genre_ids)) genreIds = tmdbItem.genre_ids
+  else if (Array.isArray(tmdbItem.genres)) genreIds = tmdbItem.genres.map(g => g.id)
+
+  // Émission en priorité
+  if (SHOW_GENRE_IDS.some(g => genreIds.includes(g))) return 'show'
+
+  // Drama si pays asiatique
+  if (origins.length > 0 && origins.some(c => DRAMA_COUNTRIES.includes(c))) return 'drama'
+
   return 'series'
 }
 
@@ -56,6 +65,7 @@ export default function ListsPage() {
   const [statusFilter, setStatusFilter] = useState('watching')
   const [sortBy, setSortBy] = useState('date')
   const [sortDir, setSortDir] = useState('desc') // 'asc' | 'desc'
+  const [editTypeId, setEditTypeId] = useState(null) // id de l'item dont on change le type
   const [showFreeInput, setShowFreeInput] = useState(false)
   const [freeText, setFreeText] = useState('')
 
@@ -90,51 +100,53 @@ export default function ListsPage() {
   // Recalcule les types pour les séries déjà dans la liste
   async function recalcTypes() {
     setLoadingItems(true)
-    const { data: seriesItems } = await supabase
-      .from('watchlist')
-      .select('id, external_id, type')
-      .not('external_id', 'is', null)
+    const apiKey = import.meta.env.VITE_TMDB_API_KEY
 
-    if (!seriesItems?.length) {
+    const { data: allItems } = await supabase
+      .from('watchlist')
+      .select('id, external_id, type, title')
+
+    if (!allItems?.length) {
       setLoadingItems(false)
-      alert('Aucun élément trouvé')
+      alert('Aucun élément trouvé en base')
+      return
+    }
+
+    // Filtrer uniquement les séries/shows/dramas avec un external_id
+    const toProcess = allItems.filter(i =>
+      i.external_id &&
+      !['movie', 'game', 'actor', 'free'].includes(i.type)
+    )
+
+    if (!toProcess.length) {
+      setLoadingItems(false)
+      alert('Aucune série à recalculer')
       return
     }
 
     let updated = 0
-    for (const item of seriesItems) {
-      // Ignorer films, jeux, acteurs, free
-      if (['movie', 'game', 'actor', 'free'].includes(item.type)) continue
+    const errors = []
+
+    for (const item of toProcess) {
       try {
-        const apiKey = import.meta.env.VITE_TMDB_API_KEY
-        const url = `https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${apiKey}&language=fr-FR`
-        const res = await fetch(url)
-        const details = await res.json()
+        const res = await fetch(
+          `https://api.themoviedb.org/3/tv/${item.external_id}?api_key=${apiKey}`
+        )
+        if (!res.ok) { errors.push(item.title); continue }
+        const d = await res.json()
+        if (!d.id) { errors.push(item.title); continue }
 
-        if (!details || !details.id) continue
-
-        // Détecter le type
-        const originList = Array.isArray(details.origin_country)
-          ? details.origin_country
-          : details.origin_country ? [details.origin_country] : []
-
-        const genreIds = (details.genres || []).map(g => g.id)
-
-        let newType = 'series'
-        if ([10764, 10767, 10763, 99, 10766].some(g => genreIds.includes(g))) {
-          newType = 'show'
-        } else if (originList.some(c => ['KR','JP','CN','TW','TH','HK','SG'].includes(c))) {
-          newType = 'drama'
-        }
-
-        // Toujours mettre à jour pour être sûr
+        const newType = detectSeriesType(d)
         await supabase.from('watchlist').update({ type: newType }).eq('id', item.id)
         if (newType !== item.type) updated++
-
-      } catch (e) { console.error('recalc error:', item.id, e) }
+      } catch (e) {
+        errors.push(item.title)
+      }
     }
+
     await fetchWatchlist()
-    alert(`✅ Recalcul terminé — ${updated} type(s) corrigé(s)`)
+    const msg = `✅ ${updated} série(s) recatégorisée(s) sur ${toProcess.length}`
+    alert(errors.length ? msg + `\n⚠️ ${errors.length} erreur(s)` : msg)
   }
 
   async function fetchCustomLists() {
@@ -252,6 +264,12 @@ export default function ListsPage() {
     if (!window.confirm('Supprimer cet élément de la liste ?')) return
     await supabase.from('watchlist').delete().eq('id', id)
     setItems(p => p.filter(i => i.id !== id))
+  }
+
+  async function changeItemType(id, newType) {
+    await supabase.from('watchlist').update({ type: newType }).eq('id', id)
+    setItems(p => p.map(i => i.id === id ? { ...i, type: newType } : i))
+    setEditTypeId(null)
   }
 
   async function addFreeWatchItem() {
@@ -541,8 +559,31 @@ export default function ListsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2">
                       <p className="font-body text-text-primary text-sm font-medium flex-1 line-clamp-2">{item.title}</p>
-                      <button onClick={() => deleteWatchItem(item.id)} className="text-text-muted hover:text-rose text-xs flex-shrink-0 mt-0.5 transition-colors">🗑️</button>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => setEditTypeId(editTypeId === item.id ? null : item.id)}
+                          className="text-text-muted text-xs px-1.5 py-0.5 rounded-lg transition-colors hover:bg-surface"
+                          title="Changer le type"
+                        >{typeEmoji[item.type] || '🎬'}</button>
+                        <button onClick={() => deleteWatchItem(item.id)} className="text-text-muted hover:text-rose text-xs transition-colors">🗑️</button>
+                      </div>
                     </div>
+                    {editTypeId === item.id && (
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {[
+                          { id: 'drama', emoji: '🎭', label: 'Drama' },
+                          { id: 'series', emoji: '📺', label: 'Série' },
+                          { id: 'show', emoji: '🎙️', label: 'Émission' },
+                          { id: 'movie', emoji: '🎥', label: 'Film' },
+                        ].map(t => (
+                          <button key={t.id} onClick={() => changeItemType(item.id, t.id)}
+                            className="font-body text-[10px] px-2 py-1 rounded-lg transition-all"
+                            style={item.type === t.id
+                              ? { background: `${currentUser?.color}25`, color: currentUser?.color, border: `1px solid ${currentUser?.color}50` }
+                              : { background: '#2a2a3a', color: '#8888aa' }}
+                          >{t.emoji} {t.label}</button>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {/* Statut — tap pour changer */}
                       <button onClick={() => cycleStatus(item)} className="font-body text-[10px] px-2 py-0.5 rounded-full transition-all"
