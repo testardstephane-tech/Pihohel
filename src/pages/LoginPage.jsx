@@ -22,12 +22,9 @@ export const USERS = {
 
 export default function LoginPage({ onLogin }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Fond image plein écran */}
-      <div className="absolute inset-0" style={{ backgroundImage: "url('/krystalite-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top' }} />
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.6) 100%)' }} />
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(155,93,229,0.15)' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(255,107,157,0.2)' }} />
+    <div className="min-h-screen bg-void flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(155,93,229,0.08)' }} />
+      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(255,107,157,0.08)' }} />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
