@@ -13,15 +13,26 @@ const NAV_HEIGHT = 65
 
 export default function Layout({ children }) {
   const { currentUser } = useUser()
+  const hasBg = !!currentUser?.bgImage
 
   return (
-    <div className="min-h-screen bg-void flex flex-col max-w-lg mx-auto relative">
+    <div className={`min-h-screen flex flex-col max-w-lg mx-auto relative overflow-hidden ${hasBg ? 'has-bg' : 'bg-void'}`}>
+
+      {/* Image de fond fixe (uniquement Icekrystale) */}
+      {hasBg && (
+        <>
+          <div className="fixed inset-0 max-w-lg mx-auto" style={{ backgroundImage: `url(${currentUser.bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center top', zIndex: 0 }} />
+          <div className="fixed inset-0 max-w-lg mx-auto" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.20) 0%, rgba(10,10,15,0.50) 100%)', zIndex: 1 }} />
+        </>
+      )}
+
       {/* Content — padding bottom = nav height + safe area */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto relative"
         style={{
           paddingBottom: `calc(${NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
           paddingTop: 'env(safe-area-inset-top)',
+          zIndex: 10,
         }}
       >
         {children}

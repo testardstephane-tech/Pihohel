@@ -69,3 +69,17 @@
 /* Safe area for iOS notch/home indicator */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .pt-safe { padding-top: env(safe-area-inset-top); }
+
+/* ── Mode fond image (Icekrystale) ─────────────────────────── */
+.has-bg .bg-void   { background-color: transparent !important; }
+.has-bg .bg-surface { background-color: rgba(18, 18, 26, 0.35) !important; }
+.has-bg .bg-card   {
+  background-color: rgba(26, 26, 38, 0.40) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.has-bg nav > div {
+  background-color: rgba(10, 10, 15, 0.55) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
