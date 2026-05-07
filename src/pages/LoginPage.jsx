@@ -16,7 +16,7 @@ export const USERS = {
     colorBg: 'rgba(255,107,157,0.15)',
     colorBorder: 'rgba(255,107,157,0.35)',
     initial: 'K',
-    bgImage: '/krystalite-bg.png',
+    bgImage: '/krystalite-bg.jpg',
   },
 }
 
