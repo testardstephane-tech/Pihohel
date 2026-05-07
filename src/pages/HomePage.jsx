@@ -69,17 +69,17 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-void relative overflow-hidden">
+    <div className={`min-h-screen relative overflow-hidden ${currentUser?.bgImage ? '' : 'bg-void'}`}>
       {/* Fond personnalisé Icekrystale */}
       {currentUser?.bgImage && (
         <>
-          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${currentUser.bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center top', opacity: 0.18 }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.4) 0%, rgba(10,10,15,0.85) 40%, rgba(10,10,15,0.97) 100%)' }} />
+          <div className="fixed inset-0 pointer-events-none" style={{ backgroundImage: `url(${currentUser.bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center top', zIndex: 0 }} />
+          <div className="fixed inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.25) 0%, rgba(10,10,15,0.55) 60%, rgba(10,10,15,0.75) 100%)', zIndex: 1 }} />
         </>
       )}
-      <div className="absolute top-0 left-0 right-0 h-48 pointer-events-none" style={{ background: `linear-gradient(to bottom, ${currentUser?.color}15, transparent)` }} />
+      <div className="absolute top-0 left-0 right-0 h-48 pointer-events-none" style={{ background: `linear-gradient(to bottom, ${currentUser?.color}10, transparent)`, zIndex: 2 }} />
 
-      <motion.div variants={stagger} initial="hidden" animate="show" className="relative z-10 p-5 space-y-5">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="p-5 space-y-5" style={{ position: 'relative', zIndex: 10 }}>
 
         {/* Header */}
         <motion.div variants={item} className="flex items-start justify-between pt-4">

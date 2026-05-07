@@ -22,15 +22,19 @@ export const USERS = {
 
 export default function LoginPage({ onLogin }) {
   return (
-    <div className="min-h-screen bg-void flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(155,93,229,0.08)' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(255,107,157,0.08)' }} />
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Fond image plein écran */}
+      <div className="absolute inset-0" style={{ backgroundImage: "url('/krystalite-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.6) 100%)' }} />
+      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full blur-[120px] pointer-events-none" style={{ background: 'rgba(155,93,229,0.15)' }} />
+      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(255,107,157,0.2)' }} />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-xs relative z-10"
+        style={{ position: 'relative', zIndex: 10 }}
       >
         <div className="text-center mb-12">
           <motion.div
@@ -52,12 +56,8 @@ export default function LoginPage({ onLogin }) {
               whileHover={{ scale: 1.02 }}
               onClick={() => onLogin(user)}
               className="w-full rounded-2xl py-5 flex items-center gap-4 px-6 transition-all duration-200 relative overflow-hidden"
-              style={user.bgImage
-                ? { border: `1px solid ${user.colorBorder}`, backgroundImage: `url(${user.bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
-                : { background: user.colorBg, border: `1px solid ${user.colorBorder}` }
-              }
+              style={{ background: 'rgba(10,10,15,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${user.colorBorder}` }}
             >
-              {user.bgImage && <div className="absolute inset-0 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(10,10,15,0.55), rgba(10,10,15,0.3))' }} />}
               <div className="relative z-10 flex items-center gap-4 w-full">
               <div
                 className="w-11 h-11 rounded-full flex items-center justify-center font-body font-semibold text-lg flex-shrink-0"
