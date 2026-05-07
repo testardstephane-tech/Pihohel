@@ -16,6 +16,7 @@ export const USERS = {
     colorBg: 'rgba(255,107,157,0.15)',
     colorBorder: 'rgba(255,107,157,0.35)',
     initial: 'K',
+    bgImage: '/krystalite-bg.png',
   },
 }
 
@@ -50,9 +51,14 @@ export default function LoginPage({ onLogin }) {
               whileTap={{ scale: 0.96 }}
               whileHover={{ scale: 1.02 }}
               onClick={() => onLogin(user)}
-              className="w-full rounded-2xl py-5 flex items-center gap-4 px-6 transition-all duration-200"
-              style={{ background: user.colorBg, border: `1px solid ${user.colorBorder}` }}
+              className="w-full rounded-2xl py-5 flex items-center gap-4 px-6 transition-all duration-200 relative overflow-hidden"
+              style={user.bgImage
+                ? { border: `1px solid ${user.colorBorder}`, backgroundImage: `url(${user.bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
+                : { background: user.colorBg, border: `1px solid ${user.colorBorder}` }
+              }
             >
+              {user.bgImage && <div className="absolute inset-0 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(10,10,15,0.55), rgba(10,10,15,0.3))' }} />}
+              <div className="relative z-10 flex items-center gap-4 w-full">
               <div
                 className="w-11 h-11 rounded-full flex items-center justify-center font-body font-semibold text-lg flex-shrink-0"
                 style={{ background: user.color, color: '#0a0a0f' }}
@@ -64,6 +70,7 @@ export default function LoginPage({ onLogin }) {
                 <p className="font-body text-text-muted text-xs mt-0.5">C'est moi !</p>
               </div>
               <span className="ml-auto font-body text-lg" style={{ color: user.color }}>→</span>
+              </div>
             </motion.button>
           ))}
         </div>
