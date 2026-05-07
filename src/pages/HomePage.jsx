@@ -69,7 +69,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative page-home">
       <div className="absolute top-0 left-0 right-0 h-48 pointer-events-none" style={{ background: `linear-gradient(to bottom, ${currentUser?.color}12, transparent)` }} />
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="relative z-10 p-5 space-y-5">
